@@ -26,7 +26,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unit-test the layout copy
+      - name: Unit-test the layout and low detail copies
         run: |
           g++ -std=c++23 -Wall -Wextra -Werror -o copy_test test/copy_test.cpp src/LayoutCopy.cpp
           ./copy_test
+          g++ -std=c++23 -Wall -Wextra -Werror -o detail_test test/detail_test.cpp src/DetailCopy.cpp src/LayoutCopy.cpp
+          ./detail_test

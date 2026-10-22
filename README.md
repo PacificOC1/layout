@@ -34,6 +34,31 @@ Pause, press **LV**, then **Save layout copy**. A new level called "*name* layou
 
 Copies are only made of your own levels (including ones you uploaded and downloaded again), main levels and levels that are **free to copy**. For anything else the mod says so and doesn't save a copy; the layout view still works on them.
 
+## Low detail copy
+
+Pause, press **LV**, then **Save low detail copy**. A new level called "*name* LDM" appears in your created levels. It looks almost exactly like the original but has less to draw, for levels that lag. Colours, triggers and every gameplay object stay as they are.
+
+Pick the **Method**:
+- **Remove** (default): the low value objects are left out of the copy.
+- **Mark as High Detail**: everything stays and the copy looks exactly like the original (apart from the flags below), but the low value objects get *High Detail* on. Turn on GD's own **Low Detail Mode** in the level's options to play without them, or off to see everything. Most levels never set High Detail properly, so this gives them a working LDM.
+
+What counts as low value. Only **decoration** is ever touched, never gameplay objects or gameplay triggers, and never decoration a trigger uses the position of (a rotate centre, a move or teleport target...) or a group parent:
+- **Already high detail**: decoration the creator marked High Detail.
+- **Never visible**: Hide on, or every colour channel it uses starts fully transparent and no colour trigger ever changes it.
+- **Stacked duplicates**: an exact copy of another decoration object in the same place, Z layer and Z order included (editor layers don't count). Only when its channels are opaque, have no blending and no colour trigger changes their opacity or blending, and it isn't in a group an alpha trigger fades. That way stacking that brightens (blending) or darkens on purpose stays.
+- **Tiny**: scaled to 10% or less and not in any group.
+- **Particle objects** (*Halve* by default): custom particle objects keep going with half the max particles and half the emission rate. *Remove* treats every particle object as low value.
+- **Shader triggers** (off by default): big FPS cost, but a big change to the look.
+
+And on every object that stays (these only change how things look):
+- **No glow** (on): glow is an extra sprite for every object that has it.
+- **No orb, pad and portal particles** (on).
+- **No fade or enter effects** (off): Don't Fade on everything, Don't Enter on decoration (enter effects move objects, so gameplay objects keep theirs).
+
+The popup says how many objects were left out or marked, and why. How much FPS you gain depends on the level: a level that lags because of huge moving or animated groups can't get much faster without looking different.
+
+The same copy rules apply as for layout copies: your own levels, main levels and free-to-copy levels.
+
 ## Settings
 
 | Setting | Default | What it does |
@@ -50,6 +75,12 @@ Copies are only made of your own levels (including ones you uploaded and downloa
 | Leave out alpha and fade triggers | on | For copies only. |
 | Leave out unused triggers | on | For copies only. |
 | Merge stacked duplicates | on | For copies only. |
+| Method | Remove | Low detail copy: remove low value decoration, or mark it High Detail for GD's Low Detail Mode. |
+| Already high detail / Never visible / Stacked duplicates / Tiny decoration | on | What counts as low value in low detail copies. |
+| Particle objects | Halve | Keep, halve or remove particle objects in low detail copies. |
+| Shader triggers | off | Count shader triggers as low value in low detail copies. |
+| No glow / No orb, pad and portal particles | on | Low detail copies only. |
+| No fade or enter effects | off | Low detail copies only. |
 
 ## How it works
 
@@ -62,6 +93,7 @@ Copies are only made of your own levels (including ones you uploaded and downloa
 
 ## Known limits
 
+- **Low detail copy, untested in-game too.** Particle data is edited by position (field 0 max particles, field 4 emission, from the 2.2 property list). With *Mark as High Detail*, whether GD's Low Detail Mode also skips marked shader triggers hasn't been checked. Objects whose sprite blends on its own, not through its colour channel, could in theory be merged as duplicates; none are known.
 - **Untested in-game.** It compiles cleanly against the 2.2081 Windows headers and the copy logic passes its unit tests, but it hasn't been run in GD yet.
 - **Level-specific visuals.** A few effects aren't covered: screen shake, the orb/pad ring effects, the player's own trail and particles, and the level-start effects.
 - **Changing *Hide No Touch* mid-level** won't re-show objects it already hid; re-open the level.

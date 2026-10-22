@@ -23,6 +23,9 @@ struct ObjectInfo {
     bool colorTrigger = false; // m_isColorTrigger (also the old 1.x/2.0 ones)
     bool hazard = false;       // spikes, saws, hazard slopes
     bool solid = false;        // GameObjectType::Solid or Slope: plain collision
+    bool particle = false;     // ParticleGameObject (custom and built-in particle objects)
+    int mainChannel = 0;       // default colour channel of its base sprite (0: unknown)
+    int detailChannel = -1;    // default colour channel of its detail sprite (-1: has none)
 };
 
 using Classifier = std::function<ObjectInfo(int id)>;
@@ -74,7 +77,10 @@ bool isAlphaTriggerID(int id);
 std::string makeLayoutString(std::string const& levelString, Classifier const& classify,
                              CopyOptions const& opts, CopyStats* stats = nullptr);
 
-// "Stereo Madness" -> "Stereo Madnes layout", cut to GD's 20 character limit.
+// "Stereo Madness" + " layout" -> "Stereo Madnes layout", cut to GD's 20
+// character limit.
+std::string copyLevelName(std::string const& original, std::string const& suffix);
+
 std::string layoutLevelName(std::string const& original);
 
 } // namespace layout

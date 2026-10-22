@@ -8,9 +8,9 @@
 	},
 	"id": "showcase.layout-view",
 	"name": "Layout View",
-	"version": "v0.2.0",
+	"version": "v0.3.0",
 	"developer": "You",
-	"description": "Play any level as a bare layout: gameplay objects only, in plain colours. Can also save a layout copy as a new level.",
+	"description": "Play any level as a bare layout: gameplay objects only, in plain colours. Can also save a layout copy, or a low detail copy that looks almost the same but runs faster.",
 	"dependencies": {
 		"geode.node-ids": ">=v1.23.3"
 	},
@@ -120,6 +120,72 @@
 			"description": "Blocks, spikes and slopes that are exact copies of another one in the same place (same rotation, scale, groups and settings) are kept once.",
 			"type": "bool",
 			"default": true
+		},
+		"ld-title": {
+			"type": "title",
+			"name": "Low detail copy"
+		},
+		"ld-method": {
+			"name": "Method",
+			"description": "<cy>Remove</c>: the copy leaves low value decoration out. <cy>Mark as High Detail</c>: the copy keeps everything and looks like the original, and GD's own <cg>Low Detail Mode</c> (in the level's options) leaves those objects out when you turn it on.",
+			"type": "string",
+			"default": "Remove",
+			"one-of": ["Remove", "Mark as High Detail"]
+		},
+		"ld-existing-high-detail": {
+			"name": "Already high detail",
+			"description": "Decoration the creator already marked High Detail.",
+			"type": "bool",
+			"default": true
+		},
+		"ld-hidden": {
+			"name": "Never visible",
+			"description": "Decoration with Hide on, or whose colours are fully transparent for the whole level (no colour trigger ever changes them).",
+			"type": "bool",
+			"default": true
+		},
+		"ld-duplicates": {
+			"name": "Stacked duplicates",
+			"description": "Decoration that is an exact copy of another one in the same place. Only on opaque colours without blending, and not in groups that fade, so stacking that brightens or darkens on purpose stays.",
+			"type": "bool",
+			"default": true
+		},
+		"ld-tiny": {
+			"name": "Tiny decoration",
+			"description": "Decoration scaled to 10% or less that isn't in any group (so nothing can scale it back up).",
+			"type": "bool",
+			"default": true
+		},
+		"ld-particles": {
+			"name": "Particle objects",
+			"description": "<cy>Halve</c>: custom particle objects keep going with half the particles. <cy>Remove</c>: all particle objects count as low detail.",
+			"type": "string",
+			"default": "Halve",
+			"one-of": ["Keep", "Halve", "Remove"]
+		},
+		"ld-shaders": {
+			"name": "Shader triggers",
+			"description": "Count shader triggers as low detail. Shaders cost a lot of FPS but change the look a lot. With Mark as High Detail, whether GD's Low Detail Mode skips triggers hasn't been checked.",
+			"type": "bool",
+			"default": false
+		},
+		"ld-no-glow": {
+			"name": "No glow",
+			"description": "Turn glow off on every object. Glow is an extra sprite per object.",
+			"type": "bool",
+			"default": true
+		},
+		"ld-no-object-particles": {
+			"name": "No orb, pad and portal particles",
+			"description": "Turn off the particles around orbs, pads, portals and coins.",
+			"type": "bool",
+			"default": true
+		},
+		"ld-no-enter-effects": {
+			"name": "No fade or enter effects",
+			"description": "Set Don't Fade on every object and Don't Enter on decoration, so less fades or flies in at the screen edges.",
+			"type": "bool",
+			"default": false
 		}
 	}
 }

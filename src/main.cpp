@@ -9,8 +9,10 @@
 #include <Geode/ui/Popup.hpp>
 #include <Geode/utils/base64.hpp>
 
+#include <memory>
 #include <unordered_map>
 
+#include "DetailCopy.hpp"
 #include "LayoutCopy.hpp"
 
 using namespace geode::prelude;
@@ -330,6 +332,9 @@ layout::ObjectInfo infoFor(GameObject* obj) {
     info.colorTrigger = obj->m_isColorTrigger;
     info.hazard = isHazard(obj);
     info.solid = obj->m_objectType == GameObjectType::Solid || obj->m_objectType == GameObjectType::Slope;
+    info.particle = typeinfo_cast<ParticleGameObject*>(obj) != nullptr;
+    if (obj->m_baseColor) info.mainChannel = obj->m_baseColor->m_defaultColorID;
+    info.detailChannel = obj->m_detailColor ? obj->m_detailColor->m_defaultColorID : -1;
     return info;
 }
 
@@ -352,13 +357,13 @@ bool copyAllowed(GJGameLevel* level, std::string& why) {
     }
     if (level->m_password.value() == 1) return true; // free to copy
     if (isOwnLevel(level)) return true;
-    why = "This level isn't free to copy, so the mod won't save a layout copy of it. "
+    why = "This level isn't free to copy, so the mod won't save a copy of it. "
           "The layout view itself still works.";
     return false;
 }
 
-// Returns a message for the popup.
-std::string saveLayoutCopy(PlayLayer* pl) {
+// The open level's decompressed string, or an error for the popup.
+std::string readLevel(PlayLayer* pl, std::string& raw) {
     if (!pl || !pl->m_level) return "No level is open.";
     auto level = pl->m_level;
 
@@ -371,26 +376,54 @@ std::string saveLayoutCopy(PlayLayer* pl) {
     }
     if (data.empty()) return "Couldn't read this level's data.";
 
-    std::string raw;
     if (data.starts_with("kS") || data.starts_with("kA")) {
         raw = data;
     } else {
         raw = ZipUtils::decompressString(data, false, 0);
     }
     if (raw.empty()) return "Couldn't unpack this level's data.";
+    return {};
+}
 
-    // Classify every object ID the way GD does, using the objects this level
-    // already created. IDs that aren't loaded here (low detail mode skips
-    // some) get a throwaway object to ask.
-    std::unordered_map<int, layout::ObjectInfo> known;
+// Classifies every object ID the way GD does, using the objects this level
+// already created. IDs that aren't loaded here (low detail mode skips some)
+// get a throwaway object to ask.
+layout::Classifier classifierFor(PlayLayer* pl) {
+    auto known = std::make_shared<std::unordered_map<int, layout::ObjectInfo>>();
     for (auto obj : CCArrayExt<GameObject*>(pl->m_objects)) {
-        if (obj && !known.contains(obj->m_objectID)) known.emplace(obj->m_objectID, infoFor(obj));
+        if (obj && !known->contains(obj->m_objectID)) known->emplace(obj->m_objectID, infoFor(obj));
     }
-    layout::Classifier classify = [&](int id) -> layout::ObjectInfo {
-        if (auto it = known.find(id); it != known.end()) return it->second;
+    return [known](int id) -> layout::ObjectInfo {
+        if (auto it = known->find(id); it != known->end()) return it->second;
         if (auto obj = GameObject::createWithKey(id)) return infoFor(obj);
         return {};
     };
+}
+
+// Saves `levelString` as a new created level with the original's song and
+// settings. Returns nullptr if GD couldn't make one.
+GJGameLevel* saveAsNewLevel(GJGameLevel* level, std::string const& levelString, std::string const& suffix,
+                            std::string const& creditPrefix) {
+    auto copy = GameLevelManager::sharedState()->createNewLevel();
+    if (!copy) return nullptr;
+    copy->m_levelName = layout::copyLevelName(level->m_levelName, suffix);
+    copy->m_levelString = ZipUtils::compressString(levelString, false, 0);
+    copy->m_audioTrack = level->m_audioTrack;
+    copy->m_songID = level->m_songID;
+    copy->m_songIDs = level->m_songIDs;
+    copy->m_sfxIDs = level->m_sfxIDs;
+    copy->m_twoPlayerMode = level->m_twoPlayerMode;
+    std::string credit = creditPrefix + std::string(level->m_levelName);
+    if (!std::string(level->m_creatorName).empty()) credit += " by " + std::string(level->m_creatorName);
+    copy->m_levelDesc = utils::base64::encode(credit, utils::base64::Base64Variant::UrlWithPad);
+    LocalLevelManager::sharedState()->save();
+    return copy;
+}
+
+// Returns a message for the popup.
+std::string saveLayoutCopy(PlayLayer* pl) {
+    std::string raw;
+    if (auto error = readLevel(pl, raw); !error.empty()) return error;
 
     auto mod = Mod::get();
     layout::CopyOptions opts;
@@ -408,22 +441,11 @@ std::string saveLayoutCopy(PlayLayer* pl) {
     opts.hazard = rgb(s_colours.hazard);
 
     layout::CopyStats stats;
-    auto result = layout::makeLayoutString(raw, classify, opts, &stats);
+    auto result = layout::makeLayoutString(raw, classifierFor(pl), opts, &stats);
     if (result.empty()) return "Couldn't read this level's data.";
 
-    auto copy = GameLevelManager::sharedState()->createNewLevel();
+    auto copy = saveAsNewLevel(pl->m_level, result, " layout", "Layout of ");
     if (!copy) return "GD couldn't create a new level.";
-    copy->m_levelName = layout::layoutLevelName(level->m_levelName);
-    copy->m_levelString = ZipUtils::compressString(result, false, 0);
-    copy->m_audioTrack = level->m_audioTrack;
-    copy->m_songID = level->m_songID;
-    copy->m_songIDs = level->m_songIDs;
-    copy->m_sfxIDs = level->m_sfxIDs;
-    copy->m_twoPlayerMode = level->m_twoPlayerMode;
-    std::string credit = "Layout of " + std::string(level->m_levelName);
-    if (!std::string(level->m_creatorName).empty()) credit += " by " + std::string(level->m_creatorName);
-    copy->m_levelDesc = utils::base64::encode(credit, utils::base64::Base64Variant::UrlWithPad);
-    LocalLevelManager::sharedState()->save();
 
     auto message = fmt::format(
         "Saved <cy>{}</c> to your created levels.\n"
@@ -441,6 +463,54 @@ std::string saveLayoutCopy(PlayLayer* pl) {
     return message;
 }
 
+// Returns a message for the popup.
+std::string saveLowDetailCopy(PlayLayer* pl) {
+    std::string raw;
+    if (auto error = readLevel(pl, raw); !error.empty()) return error;
+
+    auto mod = Mod::get();
+    layout::DetailOptions opts;
+    bool mark = mod->getSettingValue<std::string>("ld-method") == "Mark as High Detail";
+    opts.method = mark ? layout::DetailMethod::Mark : layout::DetailMethod::Remove;
+    opts.existingHighDetail = mod->getSettingValue<bool>("ld-existing-high-detail");
+    opts.hidden = mod->getSettingValue<bool>("ld-hidden");
+    opts.duplicates = mod->getSettingValue<bool>("ld-duplicates");
+    opts.tiny = mod->getSettingValue<bool>("ld-tiny");
+    auto particles = mod->getSettingValue<std::string>("ld-particles");
+    opts.particles = particles == "Keep" ? layout::ParticleMode::Keep
+        : particles == "Remove"          ? layout::ParticleMode::Remove
+                                         : layout::ParticleMode::Reduce;
+    opts.shaders = mod->getSettingValue<bool>("ld-shaders");
+    opts.noGlow = mod->getSettingValue<bool>("ld-no-glow");
+    opts.noObjectParticles = mod->getSettingValue<bool>("ld-no-object-particles");
+    opts.noEnterEffects = mod->getSettingValue<bool>("ld-no-enter-effects");
+
+    layout::DetailStats stats;
+    auto result = layout::makeLowDetailString(raw, classifierFor(pl), opts, &stats);
+    if (result.empty()) return "Couldn't read this level's data.";
+
+    auto copy = saveAsNewLevel(pl->m_level, result, " LDM", "Low detail copy of ");
+    if (!copy) return "GD couldn't create a new level.";
+
+    auto message = fmt::format(
+        "Saved <cy>{}</c> to your created levels.\n"
+        "{} <cg>{}</c> of {} objects: {} already high detail, {} never visible, {} stacked duplicates, "
+        "{} tiny, {} particle objects, {} shader triggers.",
+        std::string(copy->m_levelName), mark ? "Marked High Detail" : "Left out", stats.lowDetail, stats.total,
+        stats.existingHighDetail, stats.hidden, stats.duplicates, stats.tiny, stats.particles, stats.shaders
+    );
+    if (stats.reducedParticles > 0) {
+        message += fmt::format("\nHalved the particles of {} particle objects.", stats.reducedParticles);
+    }
+    if (stats.protectedAnchors > 0) {
+        message += fmt::format(
+            "\n{} decoration objects were left alone because triggers use their position.", stats.protectedAnchors
+        );
+    }
+    if (mark) message += "\nTurn on <cg>Low Detail Mode</c> in the level's options to play without them.";
+    return message;
+}
+
 } // namespace lv
 
 // ---------------------------------------------------------------------------
@@ -451,7 +521,7 @@ protected:
     CCMenuItemToggler* m_toggle = nullptr;
 
     bool init() {
-        if (!Popup::init(280.f, 190.f)) return false;
+        if (!Popup::init(280.f, 230.f)) return false;
         this->setTitle("Layout View");
 
         auto size = m_mainLayer->getContentSize();
@@ -479,13 +549,24 @@ protected:
 
         auto hint = CCLabelBMFont::create("Saves a new level with only the gameplay objects.", "chatFont.fnt");
         hint->setScale(0.6f);
-        hint->setPosition({size.width / 2, size.height - 135.f});
+        hint->setPosition({size.width / 2, size.height - 133.f});
         m_mainLayer->addChild(hint);
+
+        auto detailSprite = ButtonSprite::create("Save low detail copy", "goldFont.fnt", "GJ_button_02.png", 0.8f);
+        detailSprite->setScale(0.85f);
+        auto detailButton = CCMenuItemSpriteExtra::create(detailSprite, this, menu_selector(LayoutPopup::onLowDetail));
+        detailButton->setPosition({size.width / 2, size.height - 163.f});
+        menu->addChild(detailButton);
+
+        auto detailHint = CCLabelBMFont::create("Same look, less to draw. See Settings for what it cuts.", "chatFont.fnt");
+        detailHint->setScale(0.6f);
+        detailHint->setPosition({size.width / 2, size.height - 188.f});
+        m_mainLayer->addChild(detailHint);
 
         auto settingsSprite = ButtonSprite::create("Settings", "goldFont.fnt", "GJ_button_04.png", 0.8f);
         settingsSprite->setScale(0.7f);
         auto settingsButton = CCMenuItemSpriteExtra::create(settingsSprite, this, menu_selector(LayoutPopup::onSettings));
-        settingsButton->setPosition({size.width / 2, 28.f});
+        settingsButton->setPosition({size.width / 2, 22.f});
         menu->addChild(settingsButton);
         return true;
     }
@@ -500,6 +581,11 @@ protected:
     void onCopy(CCObject*) {
         auto message = lv::saveLayoutCopy(PlayLayer::get());
         FLAlertLayer::create("Layout copy", message, "OK")->show();
+    }
+
+    void onLowDetail(CCObject*) {
+        auto message = lv::saveLowDetailCopy(PlayLayer::get());
+        FLAlertLayer::create(nullptr, "Low detail copy", message, "OK", nullptr, 360.f)->show();
     }
 
     void onSettings(CCObject*) {

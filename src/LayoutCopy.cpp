@@ -1,92 +1,13 @@
 #include "LayoutCopy.hpp"
 
-#include <algorithm>
-#include <charconv>
-#include <span>
-#include <string_view>
 #include <unordered_map>
-#include <vector>
+
+#include "LevelString.hpp"
 
 namespace layout {
 namespace {
 
-// Calls f(key, value) for every pair of a GD "key,value,key,value" list.
-// A trailing key without a value is passed with an empty value.
-template <class F>
-void forEachPair(std::string_view text, F&& f) {
-    size_t start = 0;
-    while (start < text.size()) {
-        size_t comma = text.find(',', start);
-        if (comma == std::string_view::npos) comma = text.size();
-        std::string_view key = text.substr(start, comma - start);
-        std::string_view value;
-        start = comma + 1;
-        if (start <= text.size()) {
-            size_t next = text.find(',', start);
-            if (next == std::string_view::npos) next = text.size();
-            value = text.substr(start, next - start);
-            start = next + 1;
-        }
-        if (!key.empty()) f(key, value);
-    }
-}
-
-// A GD "key,value,key,value" list, keeping the original order.
-struct KeyValues {
-    std::vector<std::pair<std::string, std::string>> items;
-
-    static KeyValues parse(std::string_view text) {
-        KeyValues kv;
-        forEachPair(text, [&](std::string_view k, std::string_view v) { kv.items.emplace_back(k, v); });
-        return kv;
-    }
-
-    std::string const* get(std::string_view key) const {
-        for (auto& [k, v] : items) {
-            if (k == key) return &v;
-        }
-        return nullptr;
-    }
-
-    void set(std::string_view key, std::string value) {
-        for (auto& [k, v] : items) {
-            if (k == key) {
-                v = std::move(value);
-                return;
-            }
-        }
-        items.emplace_back(std::string(key), std::move(value));
-    }
-
-    template <class Pred>
-    void removeIf(Pred pred) {
-        std::erase_if(items, [&](auto const& kv) { return pred(kv.first); });
-    }
-
-    std::string join() const {
-        std::string out;
-        for (size_t i = 0; i < items.size(); ++i) {
-            if (i) out += ',';
-            out += items[i].first;
-            out += ',';
-            out += items[i].second;
-        }
-        return out;
-    }
-};
-
-int toInt(std::string_view s, int fallback = 0) {
-    if (s.empty()) return fallback;
-    int value = fallback;
-    // GD sometimes writes ints as floats ("1.0"); from_chars stops at the dot.
-    auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), value);
-    if (ec != std::errc()) return fallback;
-    return value;
-}
-
-bool isTrue(std::string_view s) {
-    return s == "1" || s == "true";
-}
+using namespace detail;
 
 std::string channel(int id, Rgb c) {
     // The same layout GD writes for a plain channel: rgb, no player colour,
@@ -115,72 +36,6 @@ std::string channelString(CopyOptions const& o) {
     return out;
 }
 
-// Old colour keys in the header (kS1-kS37). kS38 replaces them all.
-bool isOldColourKey(std::string const& key) {
-    if (key.size() < 3 || key[0] != 'k' || key[1] != 'S') return false;
-    int n = 0;
-    for (size_t i = 2; i < key.size(); ++i) {
-        if (key[i] < '0' || key[i] > '9') return false;
-        n = n * 10 + (key[i] - '0');
-    }
-    return n >= 1 && n <= 37;
-}
-
-// Objects that never draw anything in a real attempt but must stay for the
-// level to play the same, whatever type GD gives them.
-bool alwaysKeep(int id) {
-    switch (id) {
-        case 31:   // start position
-        case 1816: // collision block
-        case 2063: // checkpoint
-        case 3032: // keyframe
-        case 3640: // collision state block
-        case 3643: // toggle block
-            return true;
-        default:
-            return false;
-    }
-}
-
-// Keys that hold a group whose *position* the object uses: a centre, a
-// target, a destination. Objects in those groups must stay in the copy even
-// if they're decoration, or the trigger moves things to the wrong place.
-// From the 2.2 property list (gd-info-explorer's schema).
-std::span<char const* const> positionalKeys(int id) {
-    static constexpr char const* k71[] = {"71"};
-    static constexpr char const* k51[] = {"51"};
-    static constexpr char const* move[] = {"71", "395"};                     // target pos, centre
-    static constexpr char const* rotate[] = {"71", "516", "517", "518", "519"}; // centre, aim min/max x/y
-    static constexpr char const* sfx[] = {"51", "71", "457"};                 // sound source / listener groups
-    if (id >= 3006 && id <= 3015) return k71; // area and edit area triggers: centre
-    switch (id) {
-        case 901: return move;
-        case 1346: return rotate;
-        case 2067: // scale: centre
-        case 1347: // follow: follow group
-        case 3033: // keyframe animation: parent group
-        case 3016: // advanced follow: follow group
-        case 3661: // retarget advanced follow: follow group
-        case 1914: // static camera: target
-        case 3600: // end: target position
-        case 3613: // UI: UI target
-        case 3608: // spawn particle: position group
-            return k71;
-        case 747:  // linked teleport portals
-        case 2902: // unlinked teleport portal
-        case 3022: // teleport trigger
-        case 3027: // teleport orb
-        case 2062: // camera edge
-        case 2905: case 2907: case 2913: case 2914: case 2915: case 2916: // shader centres
-            return k51;
-        case 3603: // edit SFX
-        case 3605: // edit song
-            return sfx;
-        default:
-            return {};
-    }
-}
-
 // Triggers whose only effect is on the objects in their target group (51).
 // With nothing left in that group they do nothing, so the copy drops them.
 bool actsOnlyOnTarget(int id) {
@@ -206,29 +61,6 @@ bool actsOnlyOnTarget(int id) {
             return false;
     }
 }
-
-// Calls f(group) for each group in a "1.2.3" list.
-template <class F>
-void forEachGroup(std::string_view list, F&& f) {
-    size_t start = 0;
-    while (start < list.size()) {
-        size_t dot = list.find('.', start);
-        if (dot == std::string_view::npos) dot = list.size();
-        int g = toInt(list.substr(start, dot - start));
-        if (g > 0) f(g);
-        start = dot + 1;
-    }
-}
-
-// Group IDs are stored as shorts in GD, so a flat table covers them all.
-struct GroupSet {
-    std::vector<uint8_t> bits = std::vector<uint8_t>(65536, 0);
-    void clear() { std::fill(bits.begin(), bits.end(), 0); }
-    void add(int g) {
-        if (g > 0 && g < 65536) bits[g] = 1;
-    }
-    bool has(int g) const { return g > 0 && g < 65536 && bits[g]; }
-};
 
 enum class Kind : uint8_t {
     Object,    // gameplay object: kept, recoloured
@@ -505,15 +337,18 @@ std::string makeLayoutString(std::string const& levelString, Classifier const& c
     return out;
 }
 
-std::string layoutLevelName(std::string const& original) {
+std::string copyLevelName(std::string const& original, std::string const& suffix) {
     constexpr size_t kMax = 20;
-    std::string const suffix = " layout";
     std::string base = original.empty() ? std::string("Level") : original;
     if (base.size() + suffix.size() > kMax) {
         base.resize(kMax - suffix.size());
         while (!base.empty() && base.back() == ' ') base.pop_back();
     }
     return base + suffix;
+}
+
+std::string layoutLevelName(std::string const& original) {
+    return copyLevelName(original, " layout");
 }
 
 } // namespace layout
