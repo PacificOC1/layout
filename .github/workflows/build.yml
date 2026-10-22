@@ -1,0 +1,32 @@
+name: Build Layout View
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the .geode file
+        id: build
+        uses: geode-sdk/build-geode-mod@main
+
+      - name: Upload it
+        uses: actions/upload-artifact@v4
+        with:
+          name: layout-view
+          path: ${{ steps.build.outputs.build-output }}
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unit-test the layout copy
+        run: |
+          g++ -std=c++23 -Wall -Wextra -Werror -o copy_test test/copy_test.cpp src/LayoutCopy.cpp
+          ./copy_test
