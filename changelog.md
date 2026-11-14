@@ -1,3 +1,6 @@
+# v0.3.2
+- **Fix for v0.3.1, which kept almost all decoration** (a 42k object level gave a 38k copy). v0.3.1 asked a freshly made object what each ID is, but GD only marks objects as decoration while it loads a level. Copies ask the level's own objects again, as before v0.3.1, but not the ones with No Touch or Passable, so the saw fix stays.
+
 # v0.3.1
 - **Fix: saws (and other objects) missing from copies.** Copies decided what each object ID is from the level's first object with that ID. GD treats a No Touch hazard as decoration, so when a level's first saw of an ID had No Touch, every saw with that ID was left out, the ones that kill you too (seen on "cbf unl 3": all 91 ID 678 saws, 69 of them real hazards). Each ID is now classified from a fresh object, the way the game defines it. Applies to layout copies and low detail copies.
 

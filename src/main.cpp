@@ -385,27 +385,30 @@ std::string readLevel(PlayLayer* pl, std::string& raw) {
     return {};
 }
 
-// Classifies every object ID the way GD does, from a fresh object with no
-// per-object settings. Asking the level's own objects isn't safe: GD turns a
-// No Touch hazard into decoration, so when the first saw of an ID was No
-// Touch, every saw with that ID was treated as decoration (fixed in v0.3.1,
-// seen on ID 678). The level's objects are only a fallback, and No Touch /
-// Passable / hidden ones are skipped there.
+// Classifies every object ID the way GD does, using the objects this level
+// already created (GD only sets types like Decoration while it loads a level,
+// so a fresh GameObject::createWithKey object can't be asked: v0.3.1 did, and
+// kept almost all decoration). Objects with No Touch or Passable aren't used
+// when the ID has others: GD gives a No Touch hazard the Decoration type, so
+// when a level's first saw of an ID had No Touch, every saw with that ID was
+// left out (v0.3.0 and before, seen on ID 678). IDs that aren't loaded here
+// (low detail mode skips some) get a throwaway object to ask.
 layout::Classifier classifierFor(PlayLayer* pl) {
-    auto live = std::make_shared<std::unordered_map<int, layout::ObjectInfo>>();
+    auto known = std::make_shared<std::unordered_map<int, layout::ObjectInfo>>();
+    auto noTouchOnly = std::make_shared<std::unordered_map<int, layout::ObjectInfo>>();
     for (auto obj : CCArrayExt<GameObject*>(pl->m_objects)) {
-        if (!obj || live->contains(obj->m_objectID)) continue;
-        if (obj->m_isNoTouch || obj->m_isPassable || obj->m_isHide) continue;
-        live->emplace(obj->m_objectID, infoFor(obj));
+        if (!obj || known->contains(obj->m_objectID)) continue;
+        if (obj->m_isNoTouch || obj->m_isPassable) {
+            noTouchOnly->try_emplace(obj->m_objectID, infoFor(obj));
+            continue;
+        }
+        known->emplace(obj->m_objectID, infoFor(obj));
     }
-    auto fresh = std::make_shared<std::unordered_map<int, layout::ObjectInfo>>();
-    return [live, fresh](int id) -> layout::ObjectInfo {
-        if (auto it = fresh->find(id); it != fresh->end()) return it->second;
-        layout::ObjectInfo info;
-        if (auto obj = GameObject::createWithKey(id)) info = infoFor(obj);
-        else if (auto it = live->find(id); it != live->end()) info = it->second;
-        fresh->emplace(id, info);
-        return info;
+    return [known, noTouchOnly](int id) -> layout::ObjectInfo {
+        if (auto it = known->find(id); it != known->end()) return it->second;
+        if (auto it = noTouchOnly->find(id); it != noTouchOnly->end()) return it->second;
+        if (auto obj = GameObject::createWithKey(id)) return infoFor(obj);
+        return {};
     };
 }
 
