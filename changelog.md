@@ -1,3 +1,6 @@
+# v0.3.1
+- **Fix: saws (and other objects) missing from copies.** Copies decided what each object ID is from the level's first object with that ID. GD treats a No Touch hazard as decoration, so when a level's first saw of an ID had No Touch, every saw with that ID was left out, the ones that kill you too (seen on "cbf unl 3": all 91 ID 678 saws, 69 of them real hazards). Each ID is now classified from a fresh object, the way the game defines it. Applies to layout copies and low detail copies.
+
 # v0.3.0
 - **Low detail copy**: **Save low detail copy** in the LV popup saves "*name* LDM", which looks almost the same but has less to draw. Choose to remove the low value decoration or mark it High Detail, so GD's Low Detail Mode can leave it out.
 - Low value decoration: already High Detail, never visible (Hide, or a channel that stays fully transparent), stacked duplicates on opaque non-blending channels, tiny ungrouped objects, and particle objects (halved by default). Shader triggers optionally. Decoration triggers use the position of is never touched.
