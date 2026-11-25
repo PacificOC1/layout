@@ -30,7 +30,7 @@ Pause, press **LV**, then **Save layout copy**. A new level called "*name* layou
 - every object on three plain colour channels (997 hazards, 998 objects, 999 details) using your colour settings, with glow off,
 - the same song, speed, gamemode and other level settings, and "Layout of *name* by *creator*" as its description.
 
-**Objects kept for their position.** Levels often use an invisible decoration object as a rotate centre, a move or teleport target, a follow group or a camera target. Dropping it would change where things move, so the copy keeps any decoration or No Touch object that is in a group a kept trigger uses that way, or that is a group parent, with *Hide* turned on. The keys are taken from the 2.2 property list: 71 and 395 (move), 71 and 516-519 (rotate), 71 (scale, follow, keyframe animation, advanced follow, area, static camera, end, UI), 51 (teleport portals, orbs and triggers, camera edge). The popup says how many were kept this way.
+**Objects kept for their position.** Levels often use an invisible decoration object as a rotate centre, a move or teleport target, a follow group or a camera target. Dropping it would change where things move, so the copy keeps any decoration or No Touch object that is in a group a kept trigger uses that way, or that is a group parent, with *Hide* turned on. The keys are taken from the 2.2 property list: 71 and 395 (move), 71 and 516-519 (rotate), 71 (scale, follow, keyframe animation, advanced follow, area, static camera, end, UI), 51 (teleport portals, orbs and triggers, camera edge). The objects in the level's **Spawn Group** (level settings, where the player starts) are kept the same way. The popup says how many were kept this way.
 
 Copies are only made of your own levels (including ones you uploaded and downloaded again), main levels and levels that are **free to copy**. For anything else the mod says so and doesn't save a copy; the layout view still works on them.
 
@@ -42,7 +42,7 @@ Pick the **Method**:
 - **Remove** (default): the low value objects are left out of the copy.
 - **Mark as High Detail**: everything stays and the copy looks exactly like the original (apart from the flags below), but the low value objects get *High Detail* on. Turn on GD's own **Low Detail Mode** in the level's options to play without them, or off to see everything. Most levels never set High Detail properly, so this gives them a working LDM.
 
-What counts as low value. Only **decoration** is ever touched, never gameplay objects or gameplay triggers, and never decoration a trigger uses the position of (a rotate centre, a move or teleport target...) or a group parent:
+What counts as low value. Only **decoration** is ever touched, never gameplay objects or gameplay triggers, and never decoration a trigger uses the position of (a rotate centre, a move or teleport target...), the level's spawn point (Spawn Group) or a group parent:
 - **Already high detail**: decoration the creator marked High Detail.
 - **Never visible**: Hide on, or every colour channel it uses starts fully transparent and no colour trigger ever changes it.
 - **Stacked duplicates**: an exact copy of another decoration object in the same place, Z layer and Z order included (editor layers don't count). Only when its channels are opaque, have no blending and no colour trigger changes their opacity or blending, and it isn't in a group an alpha trigger fades. That way stacking that brightens (blending) or darkens on purpose stays.

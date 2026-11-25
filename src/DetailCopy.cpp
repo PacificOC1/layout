@@ -127,6 +127,7 @@ std::string makeLowDetailString(std::string const& levelString, Classifier const
     bool legacyColourTriggers = false; // pre-2.0 colour triggers: their channel is in their ID
     bool fadeTriggers = false;
     GroupSet anchors;
+    anchors.add(spawnGroup(header)); // the player starts at this group's object
     GroupSet alphaGroups;
     for (auto raw : objects) {
         int id = objectID(raw);

@@ -8,7 +8,7 @@
 	},
 	"id": "showcase.layout-view",
 	"name": "Layout View",
-	"version": "v0.3.2",
+	"version": "v0.3.3",
 	"developer": "You",
 	"description": "Play any level as a bare layout: gameplay objects only, in plain colours. Can also save a layout copy, or a low detail copy that looks almost the same but runs faster.",
 	"dependencies": {

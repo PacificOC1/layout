@@ -1,3 +1,6 @@
+# v0.3.3
+- **Fix: in some copies you spawned on the floor, below the whole level.** Levels can set a **Spawn Group** in their level settings, and the player starts at the object in that group. That object is often a hidden decoration object, so layout copies dropped it and GD started you at the default spot instead (seen on "NOMAD layout", spawn group 33: you started about 600 units under the level, with nothing on screen). Copies now always keep the spawn group's objects, hidden. Low detail copies never remove them or mark them High Detail. Copies made before this have the same problem if the original uses a spawn group: make them again.
+
 # v0.3.2
 - **Fix for v0.3.1, which kept almost all decoration** (a 42k object level gave a 38k copy). v0.3.1 asked a freshly made object what each ID is, but GD only marks objects as decoration while it loads a level. Copies ask the level's own objects again, as before v0.3.1, but not the ones with No Touch or Passable, so the saw fix stays.
 

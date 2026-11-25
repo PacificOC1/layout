@@ -174,6 +174,7 @@ std::string makeLayoutString(std::string const& levelString, Classifier const& c
         header.items.front().first[0] != 'k') {
         return {};
     }
+    int const spawn = spawnGroup(std::string_view(levelString).substr(0, headerEnd));
     header.removeIf(isOldColourKey);
     header.set("kS38", channelString(opts));
 
@@ -267,6 +268,7 @@ std::string makeLayoutString(std::string const& levelString, Classifier const& c
     constexpr int kMaxRounds = 64;
     for (int round = 0; round < kMaxRounds; ++round) {
         anchors.clear();
+        anchors.add(spawn); // the player starts at this group's object
         for (auto const& o : objs) {
             if (o.keep && o.kind != Kind::Droppable) {
                 for (int g : refsOf(o)) anchors.add(g);

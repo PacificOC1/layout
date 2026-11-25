@@ -243,6 +243,33 @@ int main() {
         CHECK(has(o2, "1,1007,"));
     }
 
+    // Spawn Group (kA36): the player starts at that group's object, so it
+    // stays (hidden) even when it's decoration. NOMAD spawns on a hidden
+    // decoration object in group 33; dropping it put the player on the floor.
+    {
+        std::string body =
+            "1,1764,2,-15,3,735,135,1,57,33;"        // spawn point: hidden decoration
+            "1,1764,2,20,3,735,57,34;"               // other decoration
+            "1,1,2,105,3,735,121,1,57,33.35;";       // No Touch block also in the spawn group
+        CopyStats s;
+        auto o = makeLayoutString("kA13,0,kA36,33;" + body, cls, opts, &s);
+        CHECK(has(o, "kA36,33"));
+        CHECK(has(o, "1,1764,2,-15,3,735,135,1,57,33,507,1,96,1;"));
+        CHECK(has(o, "1,1,2,105,3,735,121,1,57,33.35,135,1,507,1,96,1;"));
+        CHECK(!has(o, "1,1764,2,20,"));
+        CHECK(s.anchors == 2);
+        CHECK(s.droppedDecoration == 1);
+
+        // Without a spawn group they go as before.
+        CopyStats s2;
+        auto o2 = makeLayoutString("kA13,0;" + body, cls, opts, &s2);
+        CHECK(!has(o2, "1,1764,2,-15,") && !has(o2, "1,1,2,105,"));
+        CHECK(s2.anchors == 0);
+        CopyStats s3;
+        makeLayoutString("kA13,0,kA36,0;" + body, cls, opts, &s3);
+        CHECK(s3.anchors == 0);
+    }
+
     // Bad input.
     CHECK(makeLayoutString("", cls, opts).empty());
     CHECK(makeLayoutString("1,1,2,3;", cls, opts).empty());

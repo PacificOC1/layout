@@ -176,6 +176,18 @@ inline std::span<char const* const> positionalKeys(int id) {
     }
 }
 
+// The level's Spawn Group (header key kA36, level settings): the player
+// starts at the object in this group. 0 if the level doesn't use one. The
+// object is often a hidden decoration object, so the copies must keep it or
+// the player spawns on the default floor instead.
+inline int spawnGroup(std::string_view header) {
+    int group = 0;
+    forEachPair(header, [&](std::string_view k, std::string_view v) {
+        if (k == "kA36") group = toInt(v);
+    });
+    return group > 0 && group < 65536 ? group : 0;
+}
+
 // Calls f(group) for each group in a "1.2.3" list.
 template <class F>
 void forEachGroup(std::string_view list, F&& f) {

@@ -150,6 +150,28 @@ int main() {
         CHECK(has(o3, "1,1764,2,1,3,1,96,1,507,1,64,1,67,1;"));    // decoration: fade and enter
     }
 
+    // Spawn Group (kA36): its hidden decoration object is where the player
+    // starts, so it's never removed or marked High Detail.
+    {
+        DetailOptions o;
+        std::string body = "1,1764,2,-15,3,735,135,1,57,33;1,1764,2,20,3,735,135,1,57,34;";
+        DetailStats s;
+        auto out = makeLowDetailString("kA13,0,kA36,33;" + body, cls, o, &s);
+        CHECK(has(out, "1,1764,2,-15,3,735,135,1,57,33"));
+        CHECK(!has(out, "1,1764,2,20,"));
+        CHECK(s.protectedAnchors == 1);
+        CHECK(s.hidden == 1);
+
+        o.method = DetailMethod::Mark;
+        auto marked = makeLowDetailString("kA13,0,kA36,33;" + body, cls, o);
+        CHECK(!has(marked, "1,1764,2,-15,3,735,135,1,57,33,103,1"));
+        CHECK(count(marked, "103,1") == 1);
+
+        DetailStats s2;
+        makeLowDetailString("kA13,0;" + body, cls, DetailOptions{}, &s2);
+        CHECK(s2.hidden == 2);
+    }
+
     // Particle strings.
     CHECK(reduceParticles("30a-1a1a0.3a20a90") == "15a-1a1a0.3a10a90");
     CHECK(reduceParticles("1a-1a1a0.3a-1") == "1a-1a1a0.3a-1");
